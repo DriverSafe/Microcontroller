@@ -32,7 +32,7 @@ void setup() {
 }
 
 void loop() {
-  delay(10000);
+  delay(20000);
 
   HTTPClient http;
 
@@ -74,10 +74,33 @@ void loop() {
       }
     }
 
+    String responseBody = "";
     // Read the response body
     while (client.available()) {
-      String response = client.readStringUntil('\n');
-      Serial.println(response);
+      String line = client.readStringUntil('\n');
+      responseBody += line;
+      // Serial.println(line);
+    }
+
+    if (responseBody.length() != 0) {
+      // Remove first numbers and last numbers
+      int startIndex = responseBody.indexOf('{');
+      int endIndex = responseBody.lastIndexOf('}');
+
+      String realJSONstring = responseBody.substring(startIndex, endIndex + 1);
+
+      // Add to new real JSON variable
+      DynamicJsonDocument responseJSON(1024);
+      DeserializationError error = deserializeJson(responseJSON, realJSONstring);
+
+      if (error) {
+        Serial.print("JSON parsing error: ");
+        Serial.println(error.c_str());
+      } else {
+        const double x = responseJSON["location"]["lat"];
+        Serial.print("X = ");
+        Serial.println(x);
+      }
     }
 
     // Disconnect from the server
