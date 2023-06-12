@@ -10,31 +10,9 @@ const char* server = "www.googleapis.com";
 const int port = 443;
 const char* endpoint = "/geolocation/v1/geolocate?key=";  // Replace with your API key
 
-void setup() {
-  Serial.begin(115200);
-  delay(100);
-
-  // Connect to Wi-Fi
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(1000);
-    Serial.println("Connecting to WiFi...");
-  }
-  Serial.println("Connected to WiFi");
-
-  // Wait for IP address
-  while (WiFi.localIP() == INADDR_NONE) {
-    delay(1000);
-    Serial.println("Waiting for IP...");
-  }
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
-}
-
-void loop() {
-  delay(20000);
-
+DynamicJsonDocument googleGeoLocation() {
   HTTPClient http;
+  DynamicJsonDocument responseJSON(1024); // Return JSON
 
   // Prepare JSON payload
   const int capacity = JSON_OBJECT_SIZE(6) + JSON_ARRAY_SIZE(0) + JSON_ARRAY_SIZE(0) + 70;
@@ -90,16 +68,15 @@ void loop() {
       String realJSONstring = responseBody.substring(startIndex, endIndex + 1);
 
       // Add to new real JSON variable
-      DynamicJsonDocument responseJSON(1024);
       DeserializationError error = deserializeJson(responseJSON, realJSONstring);
 
       if (error) {
         Serial.print("JSON parsing error: ");
         Serial.println(error.c_str());
+        client.stop();
       } else {
-        const double x = responseJSON["location"]["lat"];
-        Serial.print("X = ");
-        Serial.println(x);
+        Serial.println("JSON parsing complete!");
+
       }
     }
 
@@ -109,4 +86,36 @@ void loop() {
   } else {
     Serial.println("Connection failed");
   }
+
+  return responseJSON;
+}
+
+void setup() {
+  Serial.begin(115200);
+  delay(100);
+
+  // Connect to Wi-Fi
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.println("Connecting to WiFi...");
+  }
+  Serial.println("Connected to WiFi");
+
+  // Wait for IP address
+  while (WiFi.localIP() == INADDR_NONE) {
+    delay(1000);
+    Serial.println("Waiting for IP...");
+  }
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+}
+
+void loop() {
+  delay(20000);
+
+  DynamicJsonDocument response = googleGeoLocation();
+
+  double x = response["location"]["lat"];
+  Serial.println(x);
 }
