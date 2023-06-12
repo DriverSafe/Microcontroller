@@ -3,14 +3,15 @@
 #include <ArduinoJson.h>
 
 // Replace with your network credentials
-const char* ssid = "";
-const char* password = "";
+const char *ssid = "";
+const char *password = "";
 
-const char* server = "www.googleapis.com";
+const char *server = "www.googleapis.com";
 const int port = 443;
-const char* endpoint = "/geolocation/v1/geolocate?key=";  // Replace with your API key
+const char *endpoint = "/geolocation/v1/geolocate?key="; // Replace with your API key
 
-DynamicJsonDocument googleGeoLocation() {
+DynamicJsonDocument googleGeoLocation()
+{
   HTTPClient http;
   DynamicJsonDocument responseJSON(1024); // Return JSON
 
@@ -32,7 +33,8 @@ DynamicJsonDocument googleGeoLocation() {
   // Start the HTTPS POST request
   WiFiClientSecure client;
   client.setInsecure();
-  if (client.connect(server, port)) {
+  if (client.connect(server, port))
+  {
     Serial.println("Connected to server");
 
     // Send the POST request with JSON payload
@@ -44,9 +46,11 @@ DynamicJsonDocument googleGeoLocation() {
     client.print(jsonBody);
 
     // Check for a successful response
-    while (client.connected()) {
+    while (client.connected())
+    {
       String line = client.readStringUntil('\n');
-      if (line == "\r") {
+      if (line == "\r")
+      {
         Serial.println("Headers received");
         break;
       }
@@ -54,13 +58,15 @@ DynamicJsonDocument googleGeoLocation() {
 
     String responseBody = "";
     // Read the response body
-    while (client.available()) {
+    while (client.available())
+    {
       String line = client.readStringUntil('\n');
       responseBody += line;
       // Serial.println(line);
     }
 
-    if (responseBody.length() != 0) {
+    if (responseBody.length() != 0)
+    {
       // Remove first numbers and last numbers
       int startIndex = responseBody.indexOf('{');
       int endIndex = responseBody.lastIndexOf('}');
@@ -70,40 +76,89 @@ DynamicJsonDocument googleGeoLocation() {
       // Add to new real JSON variable
       DeserializationError error = deserializeJson(responseJSON, realJSONstring);
 
-      if (error) {
+      if (error)
+      {
         Serial.print("JSON parsing error: ");
         Serial.println(error.c_str());
         client.stop();
-      } else {
+      }
+      else
+      {
         Serial.println("JSON parsing complete!");
-
       }
     }
 
     // Disconnect from the server
     client.stop();
     Serial.println("Disconnected from server");
-  } else {
+  }
+  else
+  {
     Serial.println("Connection failed");
   }
 
   return responseJSON;
 }
 
-void setup() {
+void postRequestLocation()
+{
+  WiFiClientSecure client;
+  client.setInsecure();
+  if (client.connect("api.driversafe.tharindu.dev", 443))
+  {
+    Serial.println("Connected to server");
+
+    // Create the JSON payload
+    String jsonBody = "{\"lat\":10.00001,\"lng\":11.00001, \"accuracy\":12.00002}";
+
+    // Send the POST request
+    HTTPClient http;
+    http.begin(client, "api.driversafe.tharindu.dev", 443, "/locations/");
+    http.addHeader("Content-Type", "application/json");
+    int httpCode = http.POST(jsonBody);
+
+    // Check the HTTP response code
+    if (httpCode > 0)
+    {
+      Serial.print("HTTP response code: ");
+      Serial.println(httpCode);
+
+      // Read the response
+      String response = http.getString();
+      Serial.print("Response: ");
+      Serial.println(response);
+    }
+    else
+    {
+      Serial.println("Error sending POST request");
+    }
+
+    http.end(); // Close the connection
+    Serial.println("Disconnected from server");
+  }
+  else
+  {
+    Serial.println("Connection failed");
+  }
+}
+
+void setup()
+{
   Serial.begin(115200);
   delay(100);
 
   // Connect to Wi-Fi
   WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
+  while (WiFi.status() != WL_CONNECTED)
+  {
     delay(1000);
     Serial.println("Connecting to WiFi...");
   }
   Serial.println("Connected to WiFi");
 
   // Wait for IP address
-  while (WiFi.localIP() == INADDR_NONE) {
+  while (WiFi.localIP() == INADDR_NONE)
+  {
     delay(1000);
     Serial.println("Waiting for IP...");
   }
@@ -111,11 +166,14 @@ void setup() {
   Serial.println(WiFi.localIP());
 }
 
-void loop() {
-  delay(20000);
+void loop()
+{
+  delay(5000);
 
-  DynamicJsonDocument response = googleGeoLocation();
+  // DynamicJsonDocument response = googleGeoLocation();
 
-  double x = response["location"]["lat"];
-  Serial.println(x);
+  // double x = response["location"]["lat"];
+  // Serial.println(x);
+
+  postRequestLocation();
 }
