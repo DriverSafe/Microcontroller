@@ -51,7 +51,20 @@ void setup()
 
 void loop()
 {
-  delay(500);
+  delay(1000);
+
+  if (locationRequestTimeCount == 5)
+  {
+    DynamicJsonDocument response = googleGeoLocation();
+    double lat = response["location"]["lat"];
+    double lng = response["location"]["lng"];
+    double accuracy = response["accuracy"];
+
+    postLocationRequest(lat, lng, accuracy);
+
+    locationRequestTimeCount = 0;
+  }
+  locationRequestTimeCount++;
 
   int distance = getDistance();
   enqueue(distance);
@@ -95,37 +108,30 @@ void enqueue(int element)
   distance_queue[0] = element;
 }
 
-int getDistance()
-{
-  digitalWrite(trigPin, LOW);
-  delayMicroseconds(2);
-
-  digitalWrite(trigPin, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(trigPin, LOW);
-
-  long duration = pulseIn(echoPin, HIGH);
-  int distance = duration * 0.034 / 2;
-
-  return distance;
-}
-
 DynamicJsonDocument googleGeoLocation()
 {
+  WiFi.mode(WIFI_STA); // Enable station mode for WiFi
+
   HTTPClient http;
   DynamicJsonDocument responseJSON(1024); // Return JSON
 
   // Prepare JSON payload
-  const int capacity = JSON_OBJECT_SIZE(6) + JSON_ARRAY_SIZE(0) + JSON_ARRAY_SIZE(0) + 70;
+  const int capacity = JSON_OBJECT_SIZE(7) + JSON_ARRAY_SIZE(0) + JSON_ARRAY_SIZE(1) + 200;
   DynamicJsonDocument jsonDoc(capacity);
 
-  jsonDoc["homeMobileCountryCode"] = 413;
-  jsonDoc["homeMobileNetworkCode"] = 8;
-  jsonDoc["radioType"] = "gsm";
-  jsonDoc["carrier"] = "Hutch Sri Lanka";
-  jsonDoc["considerIp"] = true;
-  jsonDoc.createNestedArray("cellTowers");
-  jsonDoc.createNestedArray("wifiAccessPoints");
+  jsonDoc["considerIp"] = false;
+
+  // Create a nested array for wifiAccessPoints
+  JsonArray wifiArray = jsonDoc.createNestedArray("wifiAccessPoints");
+
+  // Scan for WiFi access points and add them to the payload
+  int numOfNetworks = WiFi.scanNetworks();
+  for (int i = 0; i < numOfNetworks; i++)
+  {
+    JsonObject wifiObj = wifiArray.createNestedObject();
+    wifiObj["macAddress"] = WiFi.BSSIDstr(i);
+    wifiObj["signalStrength"] = WiFi.RSSI(i);
+  }
 
   String jsonBody;
   serializeJson(jsonDoc, jsonBody);
@@ -200,6 +206,21 @@ DynamicJsonDocument googleGeoLocation()
   return responseJSON;
 }
 
+int getDistance()
+{
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  long duration = pulseIn(echoPin, HIGH);
+  int distance = duration * 0.034 / 2;
+
+  return distance;
+}
+
 void postStateRequest(String state)
 {
   WiFiClientSecure client;
@@ -242,7 +263,7 @@ void postStateRequest(String state)
   }
 }
 
-void postLocationRequest()
+void postLocationRequest(double lat, double lng, double accuracy)
 {
   WiFiClientSecure client;
   client.setInsecure();
@@ -251,7 +272,13 @@ void postLocationRequest()
     Serial.println("Connected to server");
 
     // Create the JSON payload
-    String jsonBody = "{\"lat\":10.00001,\"lng\":11.00001, \"accuracy\":12.00002}";
+    DynamicJsonDocument jsonDoc(256);
+    jsonDoc["lat"] = lat;
+    jsonDoc["lng"] = lng;
+    jsonDoc["accuracy"] = accuracy;
+
+    String jsonBody;
+    serializeJson(jsonDoc, jsonBody);
 
     // Send the POST request
     HTTPClient http;
