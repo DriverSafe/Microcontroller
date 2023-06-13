@@ -10,6 +10,18 @@ const char *server = "www.googleapis.com";
 const int port = 443;
 const char *endpoint = "/geolocation/v1/geolocate?key="; // Replace with your API key
 
+// Ultrasonic sensor
+const int trigPin = D5;
+const int echoPin = D6;
+
+// For detect break or accident
+#define MAX_SIZE 3
+int distance_queue[MAX_SIZE];
+int front = 0;
+int rear = -1;
+int itemCount = 0;
+bool accidentHappened = false;
+
 void setup()
 {
   Serial.begin(115200);
@@ -51,6 +63,7 @@ void loop()
       if (!accidentHappened)
       {
         Serial.println("Accident happened!");
+        postStateRequest("Accidented");
         accidentHappened = true;
       }
     }
@@ -59,6 +72,7 @@ void loop()
       if (!accidentHappened)
       {
         Serial.println("Braked");
+        postStateRequest("Breaked");
       }
     }
   }
@@ -66,6 +80,8 @@ void loop()
   if (distance > 10)
   {
     accidentHappened = false;
+
+    postStateRequest("Driving");
   }
 }
 
@@ -184,7 +200,7 @@ DynamicJsonDocument googleGeoLocation()
   return responseJSON;
 }
 
-void postStateRequest()
+void postStateRequest(String state)
 {
   WiFiClientSecure client;
   client.setInsecure();
@@ -193,7 +209,7 @@ void postStateRequest()
     Serial.println("Connected to server");
 
     // Create the JSON payload
-    String jsonBody = "{\"speed\":0,\"state\":\"Driving\"}";
+    String jsonBody = "{\"speed\":0,\"state\":\"" + state + "\"}";
 
     // Send the POST request
     HTTPClient http;
@@ -266,15 +282,4 @@ void postLocationRequest()
   {
     Serial.println("Connection failed");
   }
-}
-
-{
-  delay(5000);
-
-  // DynamicJsonDocument response = googleGeoLocation();
-
-  // double x = response["location"]["lat"];
-  // Serial.println(x);
-
-  postStateRequest();
 }
