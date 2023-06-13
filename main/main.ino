@@ -100,6 +100,48 @@ DynamicJsonDocument googleGeoLocation()
   return responseJSON;
 }
 
+void postStateRequest()
+{
+  WiFiClientSecure client;
+  client.setInsecure();
+  if (client.connect("api.driversafe.tharindu.dev", 443))
+  {
+    Serial.println("Connected to server");
+
+    // Create the JSON payload
+    String jsonBody = "{\"speed\":0,\"state\":\"Driving\"}";
+
+    // Send the POST request
+    HTTPClient http;
+    http.begin(client, "api.driversafe.tharindu.dev", 443, "/states/");
+    http.addHeader("Content-Type", "application/json");
+    int httpCode = http.POST(jsonBody);
+
+    // Check the HTTP response code
+    if (httpCode > 0)
+    {
+      Serial.print("HTTP response code: ");
+      Serial.println(httpCode);
+
+      // Read the response
+      String response = http.getString();
+      Serial.print("Response: ");
+      Serial.println(response);
+    }
+    else
+    {
+      Serial.println("Error sending POST request");
+    }
+
+    http.end(); // Close the connection
+    Serial.println("Disconnected from server");
+  }
+  else
+  {
+    Serial.println("Connection failed");
+  }
+}
+
 void postRequestLocation()
 {
   WiFiClientSecure client;
@@ -175,5 +217,5 @@ void loop()
   // double x = response["location"]["lat"];
   // Serial.println(x);
 
-  postRequestLocation();
+  postStateRequest();
 }
