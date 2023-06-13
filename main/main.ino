@@ -10,6 +10,90 @@ const char *server = "www.googleapis.com";
 const int port = 443;
 const char *endpoint = "/geolocation/v1/geolocate?key="; // Replace with your API key
 
+void setup()
+{
+  Serial.begin(115200);
+  delay(100);
+
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    delay(1000);
+    Serial.println("Connecting to WiFi...");
+  }
+  Serial.println("Connected to WiFi");
+
+  // Wait for IP address
+  while (WiFi.localIP() == INADDR_NONE)
+  {
+    delay(1000);
+    Serial.println("Waiting for IP...");
+  }
+
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+}
+
+void loop()
+{
+  delay(500);
+
+  int distance = getDistance();
+  enqueue(distance);
+
+  if (distance_queue[0] < 5)
+  {
+    if (distance_queue[1] - distance_queue[0] > 20)
+    {
+      if (!accidentHappened)
+      {
+        Serial.println("Accident happened!");
+        accidentHappened = true;
+      }
+    }
+    else
+    {
+      if (!accidentHappened)
+      {
+        Serial.println("Braked");
+      }
+    }
+  }
+
+  if (distance > 10)
+  {
+    accidentHappened = false;
+  }
+}
+
+void enqueue(int element)
+{
+  for (int i = MAX_SIZE - 1; i > 0; i--)
+  {
+    distance_queue[i] = distance_queue[i - 1];
+  }
+
+  distance_queue[0] = element;
+}
+
+int getDistance()
+{
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  long duration = pulseIn(echoPin, HIGH);
+  int distance = duration * 0.034 / 2;
+
+  return distance;
+}
+
 DynamicJsonDocument googleGeoLocation()
 {
   HTTPClient http;
@@ -142,7 +226,7 @@ void postStateRequest()
   }
 }
 
-void postRequestLocation()
+void postLocationRequest()
 {
   WiFiClientSecure client;
   client.setInsecure();
@@ -184,31 +268,6 @@ void postRequestLocation()
   }
 }
 
-void setup()
-{
-  Serial.begin(115200);
-  delay(100);
-
-  // Connect to Wi-Fi
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED)
-  {
-    delay(1000);
-    Serial.println("Connecting to WiFi...");
-  }
-  Serial.println("Connected to WiFi");
-
-  // Wait for IP address
-  while (WiFi.localIP() == INADDR_NONE)
-  {
-    delay(1000);
-    Serial.println("Waiting for IP...");
-  }
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
-}
-
-void loop()
 {
   delay(5000);
 
