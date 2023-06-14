@@ -4,84 +4,144 @@
 #include <WiFiClientSecure.h>
 
 // Network credentials
-const char* ssid = "Dialog 4G";
-const char* password = "";
+const char *ssid = "Dialog 4G";
+const char *password = "1234567890";
 
 // Google Geolocation API
-const char* server = "www.googleapis.com";
+const char *server = "www.googleapis.com";
 const int port = 443;
-const char* endpoint = "/geolocation/v1/geolocate?key=";
+const char *endpoint = "/geolocation/v1/geolocate?key=";
+
+// Flame
+const int flamePin = D6;
+
+// Buzzer
+const int buzzerPin = D5;
+int buzzerStartTime = 0;
+bool isBuzzerOn = false;
 
 String lastRequest = "";
 
-void setup() {
+void setup()
+{
   Serial.begin(115200);
 
   WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
+  while (WiFi.status() != WL_CONNECTED)
+  {
     delay(1000);
     Serial.println("Connecting to WiFi...");
   }
   Serial.println("Connected to WiFi");
 
   // Wait for IP address
-  while (WiFi.localIP() == INADDR_NONE) {
+  while (WiFi.localIP() == INADDR_NONE)
+  {
     delay(1000);
     Serial.println("Waiting for IP...");
   }
 
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
+
+  pinMode(buzzerPin, OUTPUT);
+
+  pinMode(flamePin, INPUT);
 }
 
-void loop() {
-  if (Serial.available()) {
+void loop()
+{
+  int flameState = digitalRead(flamePin);
+  if (flameState == LOW)
+  {
+    digitalWrite(buzzerPin, HIGH);
+  }
+  else
+  {
+    digitalWrite(buzzerPin, LOW);
+  }
+
+  if (Serial.available())
+  {
     String command = Serial.readStringUntil('\n');
     command.trim();
 
-    if (command.indexOf("request_") != -1) {
+    if (command.indexOf("request_") != -1)
+    {
       Serial.println(command);
-      if (lastRequest != command) {
-        if (command != "request_send_location") {
+      if (lastRequest != command)
+      {
+        if (command != "request_send_location")
+        {
           lastRequest = command;
         }
-        
-        if (command == "request_status_driving") {
+
+        if (command == "request_status_driving")
+        {
+          digitalWrite(buzzerPin, LOW);
           postStateRequest("Driving");
           Serial.println("Status sended");
-
-        } else if (command == "request_status_accident") {
+        }
+        else if (command == "request_status_accident")
+        {
+          digitalWrite(buzzerPin, HIGH);
           postStateRequest("Accidented");
           Serial.println("Status sended");
-
-        } else if (command == "request_status_break") {
+        }
+        else if (command == "request_status_break")
+        {
           postStateRequest("Breaked");
-          Serial.println("Status sended");
-
-        } else if (command == "request_status_stopped") {
+          Serial.println("Status sent");
+        }
+        else if (command == "request_status_stopped")
+        {
+          digitalWrite(buzzerPin, LOW);
           postStateRequest("Stopped");
           Serial.println("Status sended");
-
-        } else if (command == "request_send_location") {
+        }
+        else if (command == "request_send_location")
+        {
+          digitalWrite(buzzerPin, LOW);
           DynamicJsonDocument response = googleGeoLocation();
           double lat = response["location"]["lat"];
           double lng = response["location"]["lng"];
           double accuracy = response["accuracy"];
 
-          if (lat != 0 && lng != 0) {
+          if (lat != 0 && lng != 0)
+          {
             postLocationRequest(lat, lng, accuracy);
           }
         }
+      }
+      else if (command == "request_status_break")
+      {
+        buzzerStartTime++;
+        if (buzzerStartTime < 100)
+        {
+          digitalWrite(buzzerPin, HIGH);
+        }
+        else
+        {
+          digitalWrite(buzzerPin, LOW);
+        }
+
+        if (buzzerStartTime > 200)
+        {
+          buzzerStartTime = 0;
+        }
+
+        Serial.println(buzzerStartTime);
       }
     }
   }
 }
 
-DynamicJsonDocument googleGeoLocation() {
-  WiFi.mode(WIFI_STA);  // Enable station mode for WiFi
+DynamicJsonDocument googleGeoLocation()
+{
+  WiFi.mode(WIFI_STA); // Enable station mode for WiFi
 
   HTTPClient http;
-  DynamicJsonDocument responseJSON(1024);  // Return JSON
+  DynamicJsonDocument responseJSON(1024); // Return JSON
 
   // Prepare JSON payload
   const int capacity = JSON_OBJECT_SIZE(7) + JSON_ARRAY_SIZE(0) + JSON_ARRAY_SIZE(1) + 200;
@@ -94,7 +154,8 @@ DynamicJsonDocument googleGeoLocation() {
 
   // Scan for WiFi access points and add them to the payload
   int numOfNetworks = WiFi.scanNetworks();
-  for (int i = 0; i < numOfNetworks; i++) {
+  for (int i = 0; i < numOfNetworks; i++)
+  {
     JsonObject wifiObj = wifiArray.createNestedObject();
     wifiObj["macAddress"] = WiFi.BSSIDstr(i);
     wifiObj["signalStrength"] = WiFi.RSSI(i);
@@ -106,7 +167,8 @@ DynamicJsonDocument googleGeoLocation() {
   // Start the HTTPS POST request
   WiFiClientSecure client;
   client.setInsecure();
-  if (client.connect(server, port)) {
+  if (client.connect(server, port))
+  {
     Serial.println("Connected to server");
 
     // Send the POST request with JSON payload
@@ -118,9 +180,11 @@ DynamicJsonDocument googleGeoLocation() {
     client.print(jsonBody);
 
     // Check for a successful response
-    while (client.connected()) {
+    while (client.connected())
+    {
       String line = client.readStringUntil('\n');
-      if (line == "\r") {
+      if (line == "\r")
+      {
         Serial.println("Headers received");
         break;
       }
@@ -128,7 +192,8 @@ DynamicJsonDocument googleGeoLocation() {
 
     String responseBody = "";
     // Read the response body
-    while (client.available()) {
+    while (client.available())
+    {
       String line = client.readStringUntil('\n');
       responseBody += line;
       // Serial.println(line);
@@ -136,7 +201,8 @@ DynamicJsonDocument googleGeoLocation() {
 
     Serial.println(responseBody);
 
-    if (responseBody.length() != 0) {
+    if (responseBody.length() != 0)
+    {
       // Remove first numbers and last numbers
       int startIndex = responseBody.indexOf('{');
       int endIndex = responseBody.lastIndexOf('}');
@@ -146,11 +212,14 @@ DynamicJsonDocument googleGeoLocation() {
       // Add to new real JSON variable
       DeserializationError error = deserializeJson(responseJSON, realJSONstring);
 
-      if (error) {
+      if (error)
+      {
         Serial.print("JSON parsing error: ");
         Serial.println(error.c_str());
         client.stop();
-      } else {
+      }
+      else
+      {
         Serial.println("JSON parsing complete!");
       }
     }
@@ -158,17 +227,21 @@ DynamicJsonDocument googleGeoLocation() {
     // Disconnect from the server
     client.stop();
     Serial.println("Disconnected from server");
-  } else {
+  }
+  else
+  {
     Serial.println("Connection failed");
   }
 
   return responseJSON;
 }
 
-void postStateRequest(String state) {
+void postStateRequest(String state)
+{
   WiFiClientSecure client;
   client.setInsecure();
-  if (client.connect("api.driversafe.tharindu.dev", 443)) {
+  if (client.connect("api.driversafe.tharindu.dev", 443))
+  {
     Serial.println("Connected to server");
 
     // Create the JSON payload
@@ -181,7 +254,8 @@ void postStateRequest(String state) {
     int httpCode = http.POST(jsonBody);
 
     // Check the HTTP response code
-    if (httpCode > 0) {
+    if (httpCode > 0)
+    {
       Serial.print("HTTP response code: ");
       Serial.println(httpCode);
 
@@ -189,21 +263,27 @@ void postStateRequest(String state) {
       String response = http.getString();
       Serial.print("Response: ");
       Serial.println(response);
-    } else {
+    }
+    else
+    {
       Serial.println("Error sending POST request");
     }
 
-    http.end();  // Close the connection
+    http.end(); // Close the connection
     Serial.println("Disconnected from server");
-  } else {
+  }
+  else
+  {
     Serial.println("Connection failed");
   }
 }
 
-void postLocationRequest(double lat, double lng, double accuracy) {
+void postLocationRequest(double lat, double lng, double accuracy)
+{
   WiFiClientSecure client;
   client.setInsecure();
-  if (client.connect("api.driversafe.tharindu.dev", 443)) {
+  if (client.connect("api.driversafe.tharindu.dev", 443))
+  {
     Serial.println("Connected to server");
 
     // Create the JSON payload
@@ -222,7 +302,8 @@ void postLocationRequest(double lat, double lng, double accuracy) {
     int httpCode = http.POST(jsonBody);
 
     // Check the HTTP response code
-    if (httpCode > 0) {
+    if (httpCode > 0)
+    {
       Serial.print("HTTP response code: ");
       Serial.println(httpCode);
 
@@ -230,13 +311,17 @@ void postLocationRequest(double lat, double lng, double accuracy) {
       String response = http.getString();
       Serial.print("Response: ");
       Serial.println(response);
-    } else {
+    }
+    else
+    {
       Serial.println("Error sending POST request");
     }
 
-    http.end();  // Close the connection
+    http.end(); // Close the connection
     Serial.println("Disconnected from server");
-  } else {
+  }
+  else
+  {
     Serial.println("Connection failed");
   }
 }
