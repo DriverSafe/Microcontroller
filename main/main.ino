@@ -14,13 +14,15 @@ const char *endpoint = "/geolocation/v1/geolocate?key="; // Replace with your AP
 const int trigPin = D5;
 const int echoPin = D6;
 
+// Buzzer
+const int buzzerPin = D7;
+
 // For detect break or accident
 #define MAX_SIZE 3
 int distance_queue[MAX_SIZE];
-int front = 0;
-int rear = -1;
-int itemCount = 0;
 bool accidentHappened = false;
+
+// Motor
 
 void setup()
 {
@@ -47,8 +49,11 @@ void setup()
 
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
+
+  pinMode(buzzerPin, OUTPUT);
 }
 
+int locationRequestTimeCount = 0;
 void loop()
 {
   delay(1000);
@@ -60,7 +65,10 @@ void loop()
     double lng = response["location"]["lng"];
     double accuracy = response["accuracy"];
 
-    postLocationRequest(lat, lng, accuracy);
+    if (lat != 0 && lng != 0)
+    {
+      postLocationRequest(lat, lng, accuracy);
+    }
 
     locationRequestTimeCount = 0;
   }
@@ -69,15 +77,26 @@ void loop()
   int distance = getDistance();
   enqueue(distance);
 
+  if (distance > 10)
+  {
+    accidentHappened = false;
+    digitalWrite(buzzerPin, LOW);
+    postStateRequest("Driving");
+  }
+  else
+  {
+    digitalWrite(buzzerPin, HIGH);
+  }
+
   if (distance_queue[0] < 5)
   {
     if (distance_queue[1] - distance_queue[0] > 20)
     {
       if (!accidentHappened)
       {
+        accidentHappened = true;
         Serial.println("Accident happened!");
         postStateRequest("Accidented");
-        accidentHappened = true;
       }
     }
     else
@@ -88,13 +107,6 @@ void loop()
         postStateRequest("Breaked");
       }
     }
-  }
-
-  if (distance > 10)
-  {
-    accidentHappened = false;
-
-    postStateRequest("Driving");
   }
 }
 
@@ -170,6 +182,8 @@ DynamicJsonDocument googleGeoLocation()
       responseBody += line;
       // Serial.println(line);
     }
+
+    Serial.println(responseBody);
 
     if (responseBody.length() != 0)
     {
