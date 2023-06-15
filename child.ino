@@ -14,6 +14,7 @@ const char *endpoint = "/geolocation/v1/geolocate?key=";
 
 // Flame
 const int flamePin = D6;
+int isFlame = false;
 
 // Buzzer
 const int buzzerPin = D5;
@@ -55,13 +56,20 @@ void loop()
   if (flameState == LOW)
   {
     digitalWrite(buzzerPin, HIGH);
+    if (!isFlame)
+    {
+      postStateRequest("Fire");
+    }
+    isFlame = true;
+    return;
   }
   else
   {
+    isFlame = false;
     digitalWrite(buzzerPin, LOW);
   }
 
-  if (Serial.available())
+  if (Serial.available() && !isFlame)
   {
     String command = Serial.readStringUntil('\n');
     command.trim();
@@ -113,6 +121,11 @@ void loop()
           }
         }
       }
+      else if (command == "request_status_accident")
+      {
+        digitalWrite(buzzerPin, HIGH);
+      }
+
       else if (command == "request_status_break")
       {
         buzzerStartTime++;
