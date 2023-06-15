@@ -1,6 +1,3 @@
-// Buzzer
-const int buzzerPin = D2;
-
 // Ultrasonic sensor
 const int trigPin = D1;
 const int echoPin = D8;
@@ -74,15 +71,15 @@ void loop()
     }
     else if (distance < 10)
     {
-        Serial.println("request_status_break");
         if (value > 122)
         {
-            for (value = value; value >= 120; value--)
+            for (value = value; value >= 0; value--)
             {
+                Serial.println("request_status_break");
                 moveMotorsForward(value);
                 delay(1);
-                Serial.println("request_status_stopped");
             }
+            Serial.println("request_status_stopped");
         }
         else
         {
@@ -91,6 +88,7 @@ void loop()
     }
     else if (distance < 20)
     {
+        Serial.println("request_status_break");
         if (value > 220)
         {
             for (value = value; value >= 193; value--)
@@ -106,6 +104,7 @@ void loop()
     }
     else if (distance < 30)
     {
+        Serial.println("request_status_break");
         if (value == 255)
         {
             for (value = 255; value >= 225; value--)
@@ -156,6 +155,7 @@ void crash()
 {
     accidentHappened = true;
     Serial.println("request_status_accident");
+    Serial.println("request_accident");
 }
 
 int getDistance()
